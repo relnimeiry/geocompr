@@ -10,7 +10,7 @@ format:
 editor: visual
 ---
 
-# Chapter 4: Spatial Data Operations {#spatial-operations}
+# Spatial data operations {#spatial-operations}
 
 ```{r, include=FALSE}
 
@@ -31,43 +31,38 @@ editor: visual
     <https://www.youtube.com/watch?v=opZGLTZTVu0&list=PLnPcq4tuEwaxaXLUrhlBz0zaTp7tj-O7h>
 -   **Abuja R Users Group GitHub** page (find all code for after session): <https://github.com/AbujaRUG/Study-Group-GeocompR>
 -   This chapter requires packages:
-
-```{r 04-spatial-operations-1, message=FALSE, warning=F, results='hide'}
+```{r 04-spatial-operations-1, message=FALSE, results='hide'}
 library(sf)
 library(terra)
-library(tidyverse)
+library(dplyr)
 library(spData)
 library(tmap)
+library(tidyverse)
 ```
 
 # 4.1 Introduction
+- **Spatial operations** involve modifying spatial objects based on their location and shape.
+- Concepts like **spatial joins** and **subsetting** have non-spatial equivalents, covered in previous chapters.
+- **Vector operations** involve spatial subsetting, joining, and aggregation.
+- **Raster operations** include local, focal, and zonal operations, as well as map algebra.
 
--   This chapter shows how spatial objects can be modified in a multitude of ways based on their location and shape.
--   Different *types* of spatial relationship between objects, including **intersects** and **disjoint**.
--   Another unique aspect of spatial objects is **distance**: all spatial objects are related through space, and distance calculations can be used to explore the strength of this relationship.
--   Spatial operations on raster objects include subsetting, joining and aggregating.
--   *Map algebra* covers a range of operations that modify raster cell values, with or without reference to surrounding cell values.
+# 4.2 Spatial Data Operations on Vectors {#spatial-operations}
 
-```{block2 04-spatial-operations-2}
-1. It is important to note that spatial operations that use two spatial objects rely on *both objects having the same coordinate reference system*, covered in more depth in Chapter \@ref(reproj-geo-data).
-2. for spatial subsetting both x (target) and y (source) must be geographic objects. Specifically, objects used for spatial subsetting in this way must have the class sf or sfc.
+
+
+
+```{block2 04-spatial-operations-2, type='rmdnote'}
+It is important to note that spatial operations that use two spatial objects rely on both objects having the same coordinate reference system, a topic that was introduced in Section \@ref(crs-intro) and which will be covered in more depth in Chapter \@ref(reproj-geo-data).
 ```
 
-## 4.2 Spatial operations on vector data {#spatial-vec}
 
--   spatial operations on vector geographic data represented as simple features in the **sf** package.
-
--   spatial operations on raster datasets using classes and functions from the **terra** package.
+### 4.2 Spatial Operations on Vector Data
 
 ### 4.2.1 Spatial subsetting
 
 -   Spatial **subsetting** is the process of taking a spatial object and returning a new object containing only features that ***relate*** in space to another object.
 
-    -   Analogous to *attribute subsetting* , subsets of `sf` data frames can be created with square bracket (`[`) operator using the syntax `x[y, , op = st_intersects]`,
-
-        where `x` is an `sf` object from which a subset of rows will be returned, `y` is the 'subsetting object' and `, op = st_intersects` is an optional argument that specifies the topological relation (also known as the binary predicate) used to do the subsetting.
-
-**The main takeaway:**
+- **Spatial subsetting** filters features in a spatial object based on their relation to another object.
 
 **subsettingfunctions\*** - use these functions, all you need really/catch all
 
@@ -78,40 +73,42 @@ library(tmap)
 **Three ways to to subset data:**
 
     1. **Using the `[` Operator**: 
-       ```r
-       points[polygon, , op = st_intersects]
-       ```
+```r
+points[polygon, , op = st_intersects]
+```
+  - where `x` is an `sf` object from which a subset of rows will be returned, `y` is the 'subsetting object' and `, op = st_intersects` is an optional argument that specifies the topological relation (also known as the binary predicate) used to do the subsetting.
+  - Example: `x[y, , op = st_intersects]` where `x` is the target object, `y` is the subsetting object, and `op` specifies the spatial relationship.
+  - Default operation: `st_intersects()`, which returns intersecting features.
     2. **Logical Intermediary**:
-       ```r
-       sf::st_intersects(x = points, y = polygon) -> intersectingpoints
-       lengths(intersectingpoints) > 0 -> logicaloutcome
-       points[logicaloutcome, ]
-       ```
+```r
+sf::st_intersects(x = points, y = polygon) -> intersectingpoints
+lengths(intersectingpoints) > 0 -> logicaloutcome
+points[logicaloutcome, ]
+```
+
     3. **Using `sf::st_filter`**:
-       ```r
-       points %>% st_filter(y = polygon, .predicate = st_intersects)
-       ```
+```r
+points %>% 
+    st_filter(y = polygon, .predicate = st_intersects)
+```
 
-The default topological relation used when an `op` argument is not provided is `st_intersects()`: the command `x[y, ]` is identical to `x[y, , op = st_intersects]` shown above but not `x[y, , op = st_disjoint]` (the meaning of these and other topological relations is described in the next section).
 
-The `filter()` function from the **tidyverse** can also be used but this approach is more verbose, as we will see in the examples below.
+  
+  
+To demonstrate spatial subsetting, we will use the `nz` and `nz_height` datasets in the **spData** package, which contain geographic data on the 16 main regions and 101 highest points in New Zealand, respectively (Figure \@ref(fig:nz-subset)), in a projected coordinate reference system. The following code chunk creates an object representing Canterbury, then uses spatial subsetting to return all high points in the region
+
 
 ### **Real world problem:**
 
-To demonstrate spatial subsetting, we will use the `nz` and `nz_height` datasets in the **spData** package, which contain geographic data on the 16 main regions and 101 highest points in New Zealand, respectively, in a projected coordinate reference system. The following code chunk creates an object representing Canterbury, then uses spatial subsetting to return all high points in the region.
-- **Objective**: Identify high elevation points within the Canterbury region.
-  
-  - **Datasets**: We have these datasets: ***nz_height*** (point), ***nz*** (polygon).\
-We want to subset **points** (elevation points) that fall within a **polygon** (canterbury region).
-    - `nz_height` (points)
-    - `nz` (polygons)
+To demonstrate spatial subsetting, we will use the `nz` and `nz_height` datasets in the **spData** package, which contain geographic data on the 16 main regions and 101 highest points in New Zealand, respectively, in a projected coordinate reference system. The following code chunk creates an object representing Canterbury, then uses spatial subsetting to return all high points in the region. - **Objective**: Identify high elevation points within the Canterbury region.
 
-  - **Steps**:
-    1. Ensure both spatial objects are in the same coordinate reference system.
-    2. Use various subsetting methods to identify points within the Canterbury region.
-
-
-
+-   **Datasets**: We have these datasets: ***nz_height*** (point), ***nz*** (polygon).\
+    We want to subset **points** (elevation points) that fall within a **polygon** (canterbury region).
+    -   `nz_height` (points)
+    -   `nz` (polygons)
+-   **Steps**:
+    1.  Ensure both spatial objects are in the same coordinate reference system.
+    2.  Use various subsetting methods to identify points within the Canterbury region.
 
 ```{r 04-spatial-operations-3}
 
@@ -123,8 +120,6 @@ nz          # (polygons)
 nz %>% view
 
 ```
-
-
 
 ```{r doublecheck-crs, warning=F}
 class(nz)
@@ -382,7 +377,7 @@ The next section explores different types of spatial relation, also known as bin
 
     -   Notice that each geometry pair has a "**DE-9IM" string** such as FF2F11212, described in the next section. \index{topological relations}
 
--   relatoinships;
+-   relationships;
 
     -   **Equals**: The two geometries are exactly the same.
 
@@ -433,7 +428,7 @@ plot(polygon_sfc)
 
 -   Create additional geometries to demonstrate spatial relations with the following commands which, when plotted on top of the polygon created above, relate in space to one another.
 
-<!-- -->
+
 
 -   Use function `st_as_sf()` and the argument `coords` to efficiently convert from a data frame containing columns representing coordinates to an `sf` object containing points:
 
@@ -709,6 +704,16 @@ ggplot(b9sf) +
 
 DE-9IM strings are derived from the dimension of each type of relation. In this case the red intersections in Figure \@ref(fig:de9imgg) have dimensions of 0 (points), 1 (lines), and 2 (polygons), as shown in Table \@ref(tab:de9emtable).
 
+        ```         
+                          Interior (x)  | Boundary (x) | Exterior (x)
+        ------------------------------------------------------------
+        Interior (y)     |      2       |      1       |      2
+        ------------------------------------------------------------
+        Boundary (y)     |      1       |      1       |      1
+        ------------------------------------------------------------
+        Exterior (y)     |      2       |      1       |      2
+        ```
+
 1.  **Interior, Boundary, Exterior**:
     -   **Interior**: The inside area of a geometric object.
     -   **Boundary**: The edge or perimeter of the object.
@@ -717,12 +722,12 @@ DE-9IM strings are derived from the dimension of each type of relation. In this 
     -   The model uses a 3x3 matrix to represent the spatial relationship between two geometries (A and B). The matrix looks at the intersections of their interiors, boundaries, and exteriors:
 
         ```         
-           B Interior  | B Boundary  | B Exterior
-        ----------------------------------------
+                         B Interior  | B Boundary    |  B Exterior
+        -----------------------------------------------------------
         A Interior  |   (I,I)        |   (I,B)       |   (I,E)
-        ----------------------------------------
+        -----------------------------------------------------------
         A Boundary  |   (B,I)        |   (B,B)       |   (B,E)
-        ----------------------------------------
+        -----------------------------------------------------------
         A Exterior  |   (E,I)        |   (E,B)       |   (E,E)
         ```
 
@@ -891,233 +896,407 @@ tm_shape(grid_sf) +
             panel.labels = c("queen", "rook"))
 ```
 
+### 4.2.5 Spatial Joining
 
-### 4.2.5 Spatial joining
+In spatial data, joins work similarly to non-spatial joins but instead of relying on a shared key variable, they rely on spatial relationships. Here's a summary of the process:
 
-Joining two non-spatial datasets relies on a shared 'key' variable, as described in Section \@ref(vector-attribute-joining). Spatial data joining applies the same concept, but instead relies on spatial relations, described in the previous section.
+- **Attribute data joins** add new columns from a source object (`y`) to a target object (`x`), as in non-spatial joins.
+- **Spatial joins** work by matching features based on their spatial relationships (e.g., points within polygons).
 
--   As with attribute data, joining adds new columns to the target object (the argument `x` in joining functions), from a source object (`y`). \index{join!spatial} \index{spatial!join}
+#### Example: Random Points and Country Names
+Imagine you have 10 random points scattered across the Earth's surface. You want to determine which countries these points belong to (if they fall on land). Here's how you can perform a spatial join using R:
 
-The process is illustrated by the following example: imagine you have ten points randomly distributed across the Earth's surface and you ask, for the points that are on land, which countries are they in? Implementing this idea in a [reproducible example](https://github.com/geocompx/geocompr/blob/main/code/04-spatial-join.R) will build your geographic data handling skills and show how spatial joins work. The starting point is to create points that are randomly scattered over the Earth's surface.
+1. **Generate random points:**
+```{r}
+set.seed(2018)
+   st_bbox(world) -> bb  # Get the world's bounding box
+   data.frame(
+     x = runif(n = 10, min = bb[1], max = bb[3]),
+     y = runif(n = 10, min = bb[2], max = bb[4])
+   ) %>%
+     st_as_sf(coords = c("x", "y"), crs = "EPSG:4326") -> random_points
 
-```{r 04-spatial-operations-19}
-set.seed(2018) # set seed for reproducibility
- st_bbox(world)-> bb # the world's bounds
-data.frame(
-  x = runif(n = 10, min = bb[1], max = bb[3]),
-  y = runif(n = 10, min = bb[2], max = bb[4])
-) %>% 
-  st_as_sf(coords = c("x", "y"), crs = "EPSG:4326")->random_points  # set coordinates and CRS
-# 10 random points
 ```
 
-The scenario illustrated in Figure \@ref(fig:spatial-join) shows that the `random_points` object (top left) lacks attribute data, while the `world` (top right) has attributes, including country names shown for a sample of countries in the legend. Spatial joins are implemented with `st_join()`, as illustrated in the code chunk below. The output is the `random_joined` object which is illustrated in Figure \@ref(fig:spatial-join) (bottom left). Before creating the joined dataset, we use spatial subsetting to create `world_random`, which contains only countries that contain random points, to verify the number of country names returned in the joined dataset should be four (Figure \@ref(fig:spatial-join), top right panel).
 
-```{r 04-spatial-operations-20, message=FALSE}
-world[random_points, ]-> world_random
-nrow(world_random)
-
-tm_shape(world) +
-  tm_polygons(fill = 'white') +
-  tm_shape(world_random) +
-  tm_bubbles(size = .75) +
-  tm_shape(world_random) +
-  tm_polygons(fill = "red", fill_alpha = .45)
-
-
-st_join(x = random_points,left = F, y=world["name_long"])->random_joined 
-random_joined %>% view
-world %>% view
-
-tm_shape(world) + 
-  tm_polygons(fill = "white") +
-  tm_shape(random_joined)+
-  tm_bubbles(size=.75)+
-    tm_shape(world_random)+
-  tm_polygons(fill = "red", fill_alpha = .3)
+2. **Subset countries that contain these points:**
+```{r}
+   world[random_points, ] -> world_random
 ```
 
-```{r spatial-join, echo=FALSE, fig.cap="Illustration of a spatial join. A new attribute variable is added to random points (top left) from source world object (top right) resulting in the data represented in the final panel.", fig.asp=0.5, warning=FALSE, message=FALSE, out.width="100%", fig.scap="Illustration of a spatial join."}
-source("code/04-spatial-join.R", print.eval = TRUE)
+3. **Visualize the points and matching countries:**
+```{r}
+   tm_shape(world) +
+     tm_polygons(fill = 'white') +
+     tm_shape(world_random) +
+     tm_bubbles(size = .75) +
+     tm_shape(world_random) +
+     tm_polygons(fill = "red", fill_alpha = .45)
 ```
 
--   By default, `st_join()` performs a left join, meaning that the result is an object containing all rows from `x` including rows with no match in `y` (see Section \@ref(vector-attribute-joining)), but it can also do inner joins by setting the argument `left = FALSE`.
+   
+4. **Perform a spatial join to add country names to points:**
+```{r}
+   st_join(x = random_points, left = FALSE, y = world["name_long"]) -> random_joined
 
--   Like spatial subsetting, the default topological operator used by `st_join()` is `st_intersects()`, which can be changed by setting the `join` argument (see `?st_join` for details). The example above demonstrates the addition of a column from a polygon layer to a point layer, but the approach works regardless of geometry types. In such cases, for example when `x` contains polygons, each of which match multiple objects in `y`, spatial joins will result in duplicate features by creating a new row for each match in `y`.\
+```
+
+- **Left Join**: The default join type (`left = TRUE`) keeps all rows from `x`, adding `y`'s attributes where spatial matches exist.
+- **Inner Join**: Set `left = FALSE` for an inner join, where only matching rows from both `x` and `y` are kept.
+
+5. **Visualize the result:**
+```{r}
+
+
+   tm_shape(world) + 
+     tm_polygons(fill = "white") +
+     tm_shape(random_joined) +
+     tm_bubbles(size = .75) +
+     tm_shape(world_random) +
+     tm_polygons(fill = "red", fill_alpha = .3)
+```
+
+#### Key Notes:
+- The topological operator used by `st_join()` is `st_intersects()` by default, but can be changed using the `join` argument.
+- Spatial joins are flexible across geometry types (e.g., points to polygons, lines to polygons). If multiple matches exist (e.g., a polygon matches multiple points), the result will contain duplicates.
+
+This process illustrates how to enrich spatial data by joining attributes from different layers based on their spatial relationships.
 
 ### 4.2.6 Distance-based joins {#non-overlapping-joins}
 
--   Sometimes two geographic datasets do not intersect but still have a strong geographic relationship due to their proximity.
+-   Sometimes geographic datasets are not overlapping but still have a close geographic relationship due to proximity.
+-   An example involves `cycle_hire` and `cycle_hire_osm` datasets from the **spData** package. These datasets are close but do not intersect.
 
--   The datasets `cycle_hire` and `cycle_hire_osm`, already attached in the **spData** package, provide a good example. Plotting them shows that they are often closely related but they do not touch, as shown in Figure \@ref(fig:cycle-hire), a base version of which is created with the following code below: \index{join!non-overlapping}
+To visualize the datasets:
 
-```{r 04-spatial-operations-21, eval=FALSE}
+```{r}
 plot(st_geometry(cycle_hire), col = "blue")
 plot(st_geometry(cycle_hire_osm), add = TRUE, pch = 3, col = "red")
 
 library(leaflet)
-  leaflet() %>%
-    # addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>%
-    addCircles(data = cycle_hire) %>%
-    addCircles(data = cycle_hire_osm, col = "red")
+leaflet() %>%
+  addCircles(data = cycle_hire) %>%
+  addCircles(data = cycle_hire_osm, col = "red")
 ```
 
-We can check if any points are the same using `st_intersects()` as shown below:
+-   Check if the points intersect:
 
-```{r 04-spatial-operations-22, message=FALSE}
+```{r}
 any(st_intersects(cycle_hire, cycle_hire_osm, sparse = FALSE))
 ```
 
-```{r 04-spatial-operations-23, echo=FALSE, eval=FALSE}
-# included to show alternative ways of showing there's no overlap
+-   Alternative methods to check overlap:
+
+```{r}
 sum(st_geometry(cycle_hire) %in% st_geometry(cycle_hire_osm))
 sum(st_coordinates(cycle_hire)[, 1] %in% st_coordinates(cycle_hire_osm)[, 1])
 ```
 
-```{r cycle-hire, fig.cap="The spatial distribution of cycle hire points in London based on official data (blue) and OpenStreetMap data (red).", echo=FALSE, warning=FALSE, fig.scap="The spatial distribution of cycle hire points in London."}
-if (knitr::is_latex_output()){
-  knitr::include_graphics("images/cycle-hire-1.png")
-} else if (knitr::is_html_output()){
-  # library(tmap)
-  # osm_tiles = tmaptools::read_osm(tmaptools::bb(cycle_hire, ext = 1.3), type =   "https://korona.geog.uni-heidelberg.de/tiles/roadsg/x={x}&y={y}&z={z}")
-  # qtm(osm_tiles) +
-    # tm_shape(cycle_hire) +
-    # tm_bubbles(col = "blue", alpha = 0.5, size = 0.2) +
-    # tm_shape(cycle_hire_osm) +
-    # tm_bubbles(col = "red", alpha = 0.5, size = 0.2) +
-    # tm_scale_bar()
-  library(leaflet)
-  leaflet() %>%
-    # addProviderTiles(providers$OpenStreetMap.BlackAndWhite) %>%
-    addCircles(data = cycle_hire) %>%
-    addCircles(data = cycle_hire_osm, col = "red")
-}
-```
+-   A non-overlapping join is needed to link data from `cycle_hire_osm` to `cycle_hire` based on proximity.
+-   Use `st_is_within_distance()` to perform a distance-based join within 20 meters:
 
-Imagine that we need to join the `capacity` variable in `cycle_hire_osm` onto the official 'target' data contained in `cycle_hire`. This is when a non-overlapping join is needed. The simplest method is to use the binary predicate `st_is_within_distance()`, as demonstrated below using a threshold distance of 20 m. One can set the threshold distance in metric units also for unprojected data (e.g., lon/lat CRSs such as WGS84), if the spherical geometry engine (S2) is enabled, as it is in **sf** by default (see Section \@ref(s2)).
-
-```{r 04-spatial-operations-24}
-sel = st_is_within_distance(cycle_hire, cycle_hire_osm, 
-                            dist = units::set_units(20, "m"))
+```{r}
+st_is_within_distance(
+  x = cycle_hire, 
+  y = cycle_hire_osm, 
+  dist = units::set_units(20, "m"))->sel
 summary(lengths(sel) > 0)
 ```
 
-This shows that there are `r sum(lengths(sel) > 0)` points in the target object `cycle_hire` within the threshold distance of `cycle_hire_osm`. How to retrieve the *values* associated with the respective `cycle_hire_osm` points? The solution is again with `st_join()`, but with an additional `dist` argument (set to 20 m below):
+-   Use `st_join()` to retrieve values from `cycle_hire_osm`:
 
-```{r 04-spatial-operations-25}
-z = st_join(cycle_hire, cycle_hire_osm, st_is_within_distance, 
-            dist = units::set_units(20, "m"))
+```{r}
+st_join(
+  x = cycle_hire, 
+  y = cycle_hire_osm, 
+  join = st_is_within_distance, 
+  dist = units::set_units(20, "m"))-> z
 z %>% view
 nrow(cycle_hire)
 nrow(z)
 ```
 
-Note that the number of rows in the joined result is greater than the target. This is because some cycle hire stations in `cycle_hire` have multiple matches in `cycle_hire_osm`. To aggregate the values for the overlapping points and return the mean, we can use the aggregation methods learned in Chapter \@ref(attr), resulting in an object with the same number of rows as the target.
+-   Some `cycle_hire` stations have multiple matches. Use aggregation to combine these results:
 
-```{r 04-spatial-operations-26}
-z %>% 
-  group_by(id) %>% 
+```{r}
+z %>%
+  group_by(id) %>%
   summarize(capacity = mean(capacity))->z
 nrow(z) == nrow(cycle_hire)
 ```
 
-The capacity of nearby stations can be verified by comparing a plot of the capacity of the source `cycle_hire_osm` data with the results in this new object (plots not shown):
+-   Verify the results by plotting:
 
-```{r 04-spatial-operations-27, eval=FALSE}
+```{r}
 plot(cycle_hire_osm["capacity"])
 plot(z["capacity"])
 ```
 
-The result of this join has used a spatial operation to change the attribute data associated with simple features; the geometry associated with each feature has remained unchanged.
-
 ### 4.2.7 Spatial aggregation {#spatial-aggr}
 
-As with attribute data aggregation,
+-   Spatial aggregation condenses data so that the output has fewer rows than the input.
+-   Functions like `mean()` or `sum()` summarize values for each grouping variable.
+-   Use `aggregate()` for spatial objects:
 
--   spatial data aggregation *condenses* data: aggregated outputs have fewer rows than non-aggregated inputs.
-
--   Statistical *aggregating functions*, such as mean average or sum, summarise multiple values \index{statistics} of a variable, and return a single value per *grouping variable*. Section \@ref(vector-attribute-aggregation) demonstrated how `aggregate()` and `group_by() %>% summarize()` condense data based on attribute variables, this section shows how the same functions work with spatial objects. \index{aggregation!spatial}
-
-Returning to the example of New Zealand, imagine you want to find out the average height of high points in each region: it is the geometry of the source (`y` or `nz` in this case) that defines how values in the target object (`x` or `nz_height`) are grouped. This can be done in a single line of code with base R's `aggregate()` method.
-
-```{r 04-spatial-operations-28}
-nz_agg = aggregate(x = nz_height, by = nz, FUN = mean)
+```{r}
+aggregate(x = nz_height, by = nz, FUN = mean)-> nz_agg
+nz_agg
+#double check its from stats pkg
 ```
 
-The result of the previous command is an `sf` object with the same geometry as the (spatial) aggregating object (`nz`), which you can verify with the command `identical(st_geometry(nz), st_geometry(nz_agg))`.
+-   This creates an `sf` object where the geometry is the same as the original, but the attributes are summarized.
+-   Alternatively, use `st_join()` with `group_by()` and `summarize()`:
 
--   The result of the previous operation is illustrated in Figure \@ref(fig:spatial-aggregation), which shows the average value of features in `nz_height` within each of New Zealand's 16 regions. The same result can also be generated by piping the output from `st_join()` into the 'tidy' functions `group_by()` and `summarize()` as follows:
-
-```{r spatial-aggregation, echo=FALSE, fig.cap="Average height of the top 101 high points across the regions of New Zealand.", fig.asp=1, message=FALSE, out.width="50%"}
-library(tmap)
-tm_shape(nz_agg) +
-  tm_fill("elevation",
-          fill.scale = tm_scale(breaks = seq(27, 30, by = 0.5) * 1e2)) +
-  tm_borders() +
-  tm_layout(scale = 1.8)
-```
-
-```{r 04-spatial-operations-29}
+```{r}
 st_join(x = nz, y = nz_height) %>%
   group_by(Name) %>%
   summarize(elevation = mean(elevation, na.rm = TRUE))->nz_agg2
+nz_agg2
 ```
 
-```{r test-tidy-spatial-join, eval=FALSE, echo=FALSE}
-plot(nz_agg)
-plot(nz_agg2)
-# aggregate looses the name of aggregating objects
-```
+-   The key difference:
+    -   `aggregate()`: Results in `NA` values for unmatched names.
+    -   `group_by() %>% summarize()`: Preserves region names.
 
--   The resulting `nz_agg` objects have the same geometry as the aggregating object `nz` but with a new column summarizing the values of `x` in each region using the function `mean()`. Other functions could be used instead of `mean()` here, including `median()`, `sd()` and other functions that return a single value per group.
-
--   Note: one difference between the `aggregate()` and `group_by() %>% summarize()` approaches is:
-
-    -   `group_by() %>% summarize()` :tresults in `NA` values for unmatching region names,
-
-    -   `aggregate()` preserves region names.
-
-    -   The 'tidy' approach is thus more flexible in terms of aggregating functions and the column names of the results.
-
+   
 ### 4.2.8 Joining incongruent layers {#incongruent}
 
--   Spatial congruence: An *aggregating object* (which we will refer to as `y`) is *congruent* with the target object (`x`) if the two objects have shared borders. Often this is the case for administrative boundary data, whereby larger units --- such as Middle Layer Super Output Areas ([MSOAs](https://www.ons.gov.uk/methodology/geography/ukgeographies/censusgeography)) in the UK or districts in many other European countries --- are composed of many smaller units.
+-   Spatial congruence happens when two datasets share borders, useful for spatial aggregation.
 
--   *Incongruent* aggregating objects, by contrast, do not share common borders with the target [@qiu_development_2012]. This is problematic for spatial aggregation (and other spatial operations) illustrated in Figure \@ref(fig:areal-example): aggregating the centroid of each sub-zone will not return accurate results. Areal interpolation overcomes this issue by transferring values from one set of areal units to another, using a range of algorithms including simple area weighted approaches and more sophisticated approaches such as 'pycnophylactic' methods [@tobler_smooth_1979].
+-   Incongruent datasets do not share borders and require special methods for aggregation.
 
-```{r areal-example, echo=FALSE, fig.cap="Illustration of congruent (left) and incongruent (right) areal units with respect to larger aggregating zones (translucent red borders).", fig.asp=0.33, fig.scap="Illustration of congruent and incongruent areal units."}
-source("code/04-areal-example.R", print.eval = TRUE)
-```
+-   For example, to transfer values from smaller area (`incongruent`) to larger ones (`aggregating_zones`), use area-weighted interpolation:
 
-The **spData** package contains a dataset named `incongruent` (colored polygons with black borders in the right panel of Figure \@ref(fig:areal-example)) and a dataset named `aggregating_zones` (the two polygons with the translucent blue border in the right panel of Figure \@ref(fig:areal-example)). Let us assume that the `value` column of `incongruent` refers to the total regional income in million Euros. How can we transfer the values of the underlying nine spatial polygons into the two polygons of `aggregating_zones`?
-
-The simplest useful method for this is *area weighted* spatial interpolation, which transfers values from the `incongruent` object to a new column in `aggregating_zones` in proportion with the area of overlap: the larger the spatial intersection between input and output features, the larger the corresponding value. This is implemented in `st_interpolate_aw()`, as demonstrated in the code chunk below.
-
-```{r 04-spatial-operations-30}
-incongruent ->smallunits
-aggregating_zones ->largerunits
+```{r}
+incongruent -> smallunits
+aggregating_zones -> largerunits
 
 smallunits %>%
-  tm_shape(.)+
+  tm_shape(.) +
   tm_fill("value") +
-  tm_shape(largerunits)+
+  tm_shape(largerunits) +
   tm_borders()
 
-
-agg_aw = st_interpolate_aw(smallunits["value"], largerunits, extensive = TRUE)
+agg_aw = st_interpolate_aw(
+  x = smallunits["value"],
+  to = largerunits, extensive = TRUE)
 agg_aw$value
+```
+
+- This method sums up values for overlapping areas. 
+- extensive: total income is a so-called spatially extensive variable (which increases with area), assuming income is evenly distributed across the smaller zones (hence the warning message above), use `extensive = TRUE`. 
+- intensive: variables such as average income or percentages, which do not increase as the area increases. For spatially intensive variables (like averages), set `extensive = FALSE`.
 
 
-# incongruent %>%
-#   tm_shape(.)+
-#   tm_fill("value") +
-#   tm_shape(aggregating_zones)+
-#   tm_borders()
 
-iv = incongruent["value"] # keep only the values to be transferred
-agg_aw = st_interpolate_aw(iv, aggregating_zones, extensive = TRUE)
-agg_aw$value
+# 4.3 Spatial Operations on Raster Data
+
+This section builds on previous methods for manipulating raster datasets to demonstrate more advanced spatial raster operations, using the `elev` and `grain` objects from the **spData** package.
+
+```{r}
+library(terra)
+library(ggplot2)
+
+# Load the rasters
+rast(system.file("raster/elev.tif", package = "spData")) -> elev
+rast(system.file("raster/grain.tif", package = "spData")) -> grain
+
+# Convert rasters to data frames
+as.data.frame(elev, xy = TRUE, na.rm = TRUE)-> elev_df 
+as.data.frame(grain, xy = TRUE, na.rm = TRUE)-> grain_df 
+
+# Print column names to verify
+print(names(elev_df))
+print(names(grain_df))
+
+# Plot using ggplot2
+ggplot() + 
+  geom_raster(data = elev_df, aes(x = x, y = y, fill = elev)) +
+  scale_fill_viridis_c() + # Adjust color scale if needed
+  labs(title = "Elevation Raster", x = "Longitude", y = "Latitude") +
+  theme_minimal() +
+  geom_text(data = elev_df, aes(x = x, y = y, label = round(elev, 1)), size = 2, color = "white")
+
+
+ggplot() + 
+  geom_raster(data = grain_df, aes(x = x, y = y, fill = grain)) +
+  labs(title = "Grain Raster", x = "Longitude", y = "Latitude") +
+  theme_minimal()
+
 
 ```
 
-In our case it is meaningful to sum up the values of the intersections falling into the aggregating zones since total income is a so-called spatially– *important* –extensive variable (which increases with area), assuming income is evenly distributed across the smaller zones (hence the warning message above). This would be different for spatially [intensive](https://geodacenter.github.io/workbook/3b_rates/lab3b.html#spatially-extensive-and-spatially-intensive-variables) variables such as *average* income or percentages, which do not increase as the area increases. `st_interpolate_aw()` works equally with spatially intensive variables: set the `extensive` parameter to `FALSE` and it will use an average rather than a sum function when doing the aggregation.
+## 4.3.1 Spatial Subsetting
+
+Raster objects can be subset by location (coordinates) and other spatial objects. Use `cellFromXY()` to translate coordinates into a cell ID, or `terra::extract()` to get cell values directly. 
+
+To get the value at coordinates (0.1, 0.1):
+
+```{r}
+terra::cellFromXY(elev, xy = matrix(c(0.1, 0.1), ncol = 2)) -> id
+elev[id] -> value
+# or
+terra::extract(elev, matrix(c(0.1, 0.1), ncol = 2)) -> extracted_value
+```
+
+To subset with another raster object:
+
+```{r}
+rast(
+  xmin = 0.9, 
+  xmax = 1.8, 
+  ymin = -0.45,
+  ymax = 0.45, 
+  resolution = 0.3,
+  vals = rep(1, 9)) -> clip
+elev[clip] -> subset_elev
+
+# or
+# Crop the elevation raster using the extent of the clip
+terra::crop(elev, ext(clip))-> subset_elev 
+
+# Print and plot the subset to verify
+print(subset_elev)
+plot(subset_elev)
+```
+
+Spatial subsetting can also be done with logical rasters:
+
+```{r}
+elev[1:2, drop = FALSE] -> subset_raster
+# to visualize
+elev[1, 1:2, drop = FALSE] -> x
+plot(x)
+```
+
+Creating and using a mask raster:
+
+```{r}
+elev[elev < 20] -> elev_masked
+# create raster mask
+rmask = elev
+sample(c(NA, TRUE), 36, replace = TRUE)-> values(rmask) 
+```
+
+For masking operations:
+
+```{r}
+elev[rmask, drop = FALSE] -> masked_elev
+# or
+mask(elev, rmask) -> masked_raster
+```
+
+
+## 4.3.2 Map algebra
+
+The term **map algebra** refers to a set of techniques for analyzing geographic raster and vector data. In a narrower sense, it involves operations that modify or summarize raster cell values based on surrounding cells, zones, or statistical functions.
+
+Map algebra operations are generally fast because raster datasets store only implicit coordinates. Processing is efficient as long as cell positions remain consistent. Datasets sharing the same extent, projection, and resolution can be treated as matrices for processing.
+
+The **terra** package supports map algebra operations with four main types:
+
+1. **Local** or per-cell operations
+2. **Focal** or neighborhood operations
+3. **Zonal** operations
+4. **Global** or per-raster operations
+
+### 4.3.3 Local operations
+
+**Local** operations involve cell-by-cell calculations within one or more layers. Examples include arithmetic operations, logical operations, and classification. The **terra** package handles these operations efficiently.
+
+```{r 04-spatial-operations-41, eval = FALSE}
+elev + elev -> added_elev
+elev^2 -> squared_elev
+log(elev) -> log_elev
+elev > 5 -> elev_greater_than_5
+```
+
+Classifying numeric values into groups (e.g., elevation classes) using the `classify()` function:
+
+```{r 04-spatial-operations-40}
+matrix(c(0, 12, 1, 12, 24, 2, 24, 36, 3), ncol = 3, byrow = TRUE) -> rcl
+classify(elev, rcl = rcl) -> recl
+```
+
+Using `app()`, `tapp()`, and `lapp()` functions for efficient operations on large rasters:
+
+```{r}
+system.file("raster/landsat.tif", package = "spDataLarge") -> multi_raster_file
+rast(multi_raster_file) -> multi_rast
+
+(multi_rast * 0.0000275) - 0.2 -> multi_rast
+
+multi_rast[multi_rast < 0] = 0
+
+ndvi_fun = function(nir, red) {
+  (nir - red) / (nir + red)
+}
+
+lapp(multi_rast[[c(4, 3)]], fun = ndvi_fun) -> ndvi_rast
+```
+
+### 4.3.4 Focal operations
+
+**Focal** operations consider a central cell and its neighbors. A focal operation applies an aggregation function to the neighborhood and assigns the result to the central cell. 
+
+Performing a focal operation to find the minimum value in a 3x3 window:
+
+```{r 04-spatial-operations-42, eval = FALSE}
+focal(elev, w = matrix(1, nrow = 3, ncol = 3), fun = min) -> r_focal
+```
+
+Focal functions are crucial in image processing, used for smoothing, edge detection, and terrain analysis. For example, calculating terrain metrics:
+
+```{r}
+terrain(elev, v = "slope") -> slope_raster
+```
+
+
+
+## 4.3.5 Zonal operations
+
+**Zonal** operations aggregate raster cell values based on zones defined by a second raster with categorical values. Unlike focal operations, where cells must be neighbors, zonal operations can involve cells that are not adjacent. The result is a summary table grouped by zones, also known as **zonal statistics**.
+
+Calculate the mean elevation for each grain size class using the `zonal()` function:
+
+```{r 04-spatial-operations-43}
+zonal(elev, grain, fun = "mean") -> z
+print(z)-> z 
+```
+
+## 4.3.6 Global operations and distances
+
+**Global** operations are a special case of zonal operations where the entire raster dataset is treated as a single zone. Common global operations include calculating descriptive statistics for the entire raster, such as the minimum or maximum.
+
+Global operations are also useful for distance calculations. For example, calculating the distance to the nearest coast or incorporating topography by weighting distance with elevation. Visibility and viewshed computations also fall under global operations.
+
+### 4.3.7 Map algebra counterparts in vector processing
+
+Map algebra operations often have counterparts in vector processing:
+
+- **Distance raster**: Equivalent to a vector buffer operation.
+- **Reclassification**: Similar to dissolving vector data.
+- **Overlaying rasters**: Comparable to vector clipping.
+- **Intersecting layers**: Similar to spatial clipping but involves overlapping areas.
+
+Be cautious of terminology differences between raster and vector data models.
+
+### 4.3.8 Merging rasters
+
+When working with remotely sensed data that spans multiple scenes, you may need to merge these scenes. Use the `merge()` function to combine rasters side by side:
+
+```{r 04-spatial-operations-44, eval = FALSE}
+geodata::elevation_30s(country = "AUT", path = tempdir()) -> aut
+geodata::elevation_30s(country = "CHE", path = tempdir()) -> ch
+merge(aut, ch) -> aut_ch
+```
+
+If overlapping areas have different values, consider using `mosaic()` to define a function for the overlap, such as calculating the mean to smooth the border.
+
+## Exercises
+
+```{r, echo=FALSE, results='asis'}
+knitr::knit_child('_04-ex.Rmd', quiet = TRUE, options = list(include = FALSE, eval = FALSE)) -> res
+cat(res, sep = '\n')
+```
+
